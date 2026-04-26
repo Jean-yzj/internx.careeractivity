@@ -69,8 +69,17 @@ function parseTable(html: string): RawRow[] {
       const titleRaw = cells[2] || "";
       const venue = cells[3] || cells[cells.length - 1] || "";
 
-      // 標題清理:移除書名號、星號等多餘符號
-      const title = titleRaw.replace(/^[「」『』《》【】\s*]+|[「」『』《》【】\s*]+$/g, "").trim();
+      // 標題清理:
+      // 1) 把 cell 內換行壓成「; 」(同一格內常有「主標」+「副標」)
+      // 2) 移除前後書名號/星號/空白
+      // 3) 移除頭尾多餘 】「」 等符號
+      const title = titleRaw
+        .replace(/\n+/g, "; ")
+        .replace(/^[「」『』《》【】\s*]+/, "")
+        .replace(/[「」『』《》【】\s*]+$/, "")
+        .replace(/【[^】]*】/g, (s) => s) // 保留中間的【XXX】
+        .replace(/\s+/g, " ")
+        .trim();
       if (!title || title.length < 2) return;
 
       rows.push({ rocDate, timeRange, speaker: speaker.trim(), title, venue: venue.trim() });

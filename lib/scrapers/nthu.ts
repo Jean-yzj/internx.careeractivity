@@ -35,12 +35,29 @@ function parseList(html: string): ListItem[] {
       ? `${dateMatch[1]}-${dateMatch[2].padStart(2, "0")}-${dateMatch[3].padStart(2, "0")}`
       : "";
 
-    let title = text
-      .replace(/\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s*\([^)]+\)?/g, "")
-      .replace(/\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/g, "")
-      .replace(/週[一二三四五六日]/g, "")
-      .trim();
-    if (!title) title = text;
+    // anchor 內含多個 div(日期、單位、標題);取最後一個非日期、非單位的 div 為標題
+    const innerDivs = $a.find("div").map((__: number, d: any) => normalizeText($(d).text())).get().filter(Boolean);
+    let title = "";
+    // 從最後往前找第一個不是純日期、不是「學務處職涯發展組」之類單位名稱的
+    for (let i = innerDivs.length - 1; i >= 0; i--) {
+      const candidate = innerDivs[i];
+      if (/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/.test(candidate)) continue;
+      if (/^學務處|職涯發展組|職涯中心$/.test(candidate)) continue;
+      if (candidate.length < 4) continue;
+      title = candidate;
+      break;
+    }
+    // 後備:取整段文字並移除日期
+    if (!title) {
+      title = text
+        .replace(/\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s*\([^)]+\)?/g, "")
+        .replace(/\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/g, "")
+        .replace(/週[一二三四五六日]/g, "")
+        .replace(/\n+/g, " ")
+        .trim();
+    }
+    title = title.replace(/\s+/g, " ").trim();
+    if (!title) return;
 
     items.push({ id, title, date });
   });
@@ -63,10 +80,21 @@ function parseDetail(html: string, fallbackDate: string): DetailFields {
   const $ = cheerio.load(html);
   const bodyText = normalizeText($("main, article, .content, #content, body").first().text());
 
-  const timeMatch = bodyText.match(/(?:活動時間|時\s*間|日\s*期)[:：\s]+([^\n]{0,80})/);
-  const venueMatch = bodyText.match(/(?:地\s*點|地點|地址|位置)[:：\s]+([^\n]{0,120})/);
-  const deadlineMatch = bodyText.match(/(?:報名截止|報名期限|截止)[:：\s]+([^\n]{0,80})/);
-  const organizerMatch = bodyText.match(/(?:主辦|承辦|單位)[:：\s]+([^\n]{0,80})/);
+  // 限制長度避免吃到下一個欄位;只取到第一個常見欄位分隔符前
+  const STOP = /[\n。;；]|報名|時\s*間|地\s*點|地\s*址|對\s*象|名\s*額|費\s*用|聯絡/;
+  const grab = (re: RegExp, max = 40): string => {
+    const m = bodyText.match(re);
+    if (!m) return "";
+    let s = m[1].slice(0, max);
+    const stopIdx = s.search(STOP);
+    if (stopIdx > 5) s = s.slice(0, stopIdx);
+    return s.trim();
+  };
+
+  const timeText = grab(/(?:活動時間|時\s*間|日\s*期)[:：\s]+([^\n]+)/, 60);
+  const venueText = grab(/(?:地\s*點|地址|位置)[:：\s]+([^\n]+)/, 80);
+  const deadlineText = grab(/(?:報名截止|報名期限|截止)[:：\s]+([^\n]+)/, 50);
+  const organizerText = grab(/(?:主\s*辦|承\s*辦)[:：\s]+([^\n]+)/, 30);
   const capacityMatch = bodyText.match(/(?:名額|人數|限額)[:：\s]+(\d+)/);
   const feeFree = /免費|不收費/.test(bodyText);
   const feeMatch = bodyText.match(/(?:費用|報名費|金額)[:：\s]*(?:NT\$|TWD|NTD|新台幣)?\s*(\d+)/);
@@ -75,11 +103,10 @@ function parseDetail(html: string, fallbackDate: string): DetailFields {
   let startDateTime: Date | null = baseDate;
   let endDateTime: Date | null = (() => { const d = new Date(baseDate); d.setHours(23, 59, 59, 999); return d; })();
 
-  if (timeMatch) {
-    const tt = timeMatch[1];
-    const explicit = parseDateLoose(tt);
+  if (timeText) {
+    const explicit = parseDateLoose(timeText);
     const dateBase = explicit || baseDate;
-    const range = applyTimeRange(tt, dateBase);
+    const range = applyTimeRange(timeText, dateBase);
     startDateTime = range.start;
     endDateTime = range.end;
   }
@@ -87,16 +114,15 @@ function parseDetail(html: string, fallbackDate: string): DetailFields {
   let description = normalizeText($("main, article, .content, #content").first().text()).slice(0, 3000);
   if (description.length < 50) description = "詳情請見清大職涯發展組原始頁面。";
 
-  let registrationDeadline: Date | null = null;
-  if (deadlineMatch) registrationDeadline = parseDateLoose(deadlineMatch[1]);
+  const registrationDeadline = deadlineText ? parseDateLoose(deadlineText) : null;
 
   return {
     description,
-    venue: venueMatch ? venueMatch[1].trim() : "",
+    venue: venueText,
     startDateTime,
     endDateTime,
     registrationDeadline,
-    organizer: organizerMatch ? organizerMatch[1].trim() : "清大職涯發展組",
+    organizer: organizerText || "清大職涯發展組",
     feeType: feeFree ? "free" : feeMatch ? "paid" : "unknown",
     feeAmount: feeMatch ? parseInt(feeMatch[1], 10) : null,
     maxCapacity: capacityMatch ? parseInt(capacityMatch[1], 10) : null,

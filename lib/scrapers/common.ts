@@ -86,13 +86,22 @@ export function rocToAdYear(rocOrAd: number): number {
 
 export function parseDateLoose(s: string): Date | null {
   if (!s || typeof s !== "string") return null;
-  const m = s.match(/(\d{2,4})[\/\-年](\d{1,2})[\/\-月](\d{1,2})/);
-  if (!m) return null;
-  const y = rocToAdYear(parseInt(m[1], 10));
-  const mo = parseInt(m[2], 10);
-  const d = parseInt(m[3], 10);
-  const date = new Date(y, mo - 1, d, 0, 0, 0);
-  return isNaN(date.getTime()) ? null : date;
+  // 找出 (yyyy/mm/dd) 或 (民國 yyy/mm/dd);民國年要 >= 80(1991),否則 2 位數可能是日期被誤判
+  // 例如 "(報名日期：4/20-05/04)" 不該解析成 20/05/04 = 民國20年5月4日 = 1931
+  const matches = Array.from(s.matchAll(/(\d{2,4})[\/\-年](\d{1,2})[\/\-月](\d{1,2})/g));
+  for (const m of matches) {
+    const yRaw = parseInt(m[1], 10);
+    // 拒絕看起來不像年份的數字
+    if (yRaw < 80) continue;
+    const y = rocToAdYear(yRaw);
+    if (y < 2000 || y > 2100) continue;
+    const mo = parseInt(m[2], 10);
+    const d = parseInt(m[3], 10);
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) continue;
+    const date = new Date(y, mo - 1, d, 0, 0, 0);
+    if (!isNaN(date.getTime())) return date;
+  }
+  return null;
 }
 
 export function applyTimeRange(timeText: string, baseDate: Date): { start: Date; end: Date } {
