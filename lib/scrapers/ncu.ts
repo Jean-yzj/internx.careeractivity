@@ -33,8 +33,16 @@ function parseList(html: string): ListItem[] {
     const id = m[1];
     if (items.find((x) => x.id === id)) return;
 
-    const fullTitle = normalizeText($a.text());
+    let fullTitle = normalizeText($a.text());
     if (!fullTitle || fullTitle.length < 4) return;
+
+    // anchor 內含日期與點閱數,例如「2026-04-08點閱：580【活動】XXX」
+    // 先剝掉開頭的 YYYY-MM-DD、點閱次數
+    fullTitle = fullTitle
+      .replace(/^\d{4}[\-\/]\d{1,2}[\-\/]\d{1,2}\s*/, "")
+      .replace(/^點閱[:：]\s*\d+\s*/, "")
+      .replace(/\s*點閱[:：]\s*\d+\s*$/, "")
+      .trim();
 
     // 抓出前綴分類【XXX】
     const catMatch = fullTitle.match(/^【([^】]+)】/);
@@ -42,6 +50,7 @@ function parseList(html: string): ListItem[] {
 
     // 標題去掉前綴(顯示用)
     const title = fullTitle.replace(/^【[^】]+】\s*/, "").trim() || fullTitle;
+    if (title.length < 4) return;
 
     const $row = $a.closest("li, tr, div, article");
     const rowText = normalizeText($row.text());

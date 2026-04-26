@@ -19,19 +19,34 @@ interface ListItem {
 function parseList(html: string): ListItem[] {
   const $ = cheerio.load(html);
   const items: ListItem[] = [];
-  $('a[href*="serno="]').each((_: number, a: any) => {
+  // 只抓 module=nycu0106 的 view 連結(那才是職涯講座條目);
+  // 其他 serno 連結是側邊選單/導覽,要排除
+  $('a[href*="module=nycu0106"][href*="view"][href*="serno="]').each((_: number, a: any) => {
     const $a = $(a);
     const href = $a.attr("href") || "";
     const m = href.match(/serno=([0-9]+)/);
     if (!m) return;
     const serno = m[1];
     if (items.find((x) => x.serno === serno)) return;
-    const title = normalizeText($a.text());
+    let title = normalizeText($a.text());
     if (!title || title.length < 4) return;
+
+    // 標題裡可能含「更新日期：114-10-13 發布單位：XXX」前綴,剝掉
+    title = title
+      .replace(/更新日期[:：]\s*\d{2,4}[\-\/]\d{1,2}[\-\/]\d{1,2}\s*/, "")
+      .replace(/發布單位[:：]\s*[^\s】]+\s*/, "")
+      .replace(/^[\s\n]+/, "")
+      .replace(/\n+/g, " ")
+      .trim();
+    if (!title || title.length < 4) return;
+    // 過濾掉導覽選項(無『講座/活動/工作坊/競賽/說明會/體驗/分享』等字眼且不以【開頭)
+    const looksLikeActivity =
+      /^【/.test(title) ||
+      /講座|活動|工作坊|競賽|說明會|體驗|分享|博覽|論壇|徵才|招募|實習|研習|招生|培訓|諮詢/.test(title);
+    if (!looksLikeActivity) return;
 
     const $row = $a.closest("tr, li, div");
     const rowText = normalizeText($row.text());
-    // 日期格式為 民國 yyy-mm-dd 或 yyy/mm/dd,例如「115-03-20」
     const dateMatch = rowText.match(/(\d{2,4})[\-\/年](\d{1,2})[\-\/月](\d{1,2})/);
     let date = "";
     if (dateMatch) {
