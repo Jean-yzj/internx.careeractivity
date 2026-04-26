@@ -31,6 +31,20 @@ export default function Home({ activities, fetchedAt, errorMessage }: HomeProps)
     return m;
   }, [activities, hidePast]);
 
+  // 各校活動數(用於下拉選項顯示「(N)」與隱藏 0 筆學校)
+  const schoolCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const a of activities) {
+      if (hidePast && new Date(a.endDateTime).getTime() < Date.now()) continue;
+      m[a.school] = (m[a.school] || 0) + 1;
+    }
+    return m;
+  }, [activities, hidePast]);
+
+  const availableSchools = useMemo(() => {
+    return Object.values(SCHOOLS).filter((s) => (schoolCounts[s.key] || 0) > 0);
+  }, [schoolCounts]);
+
   const totalForFilter = useMemo(() => {
     if (!hidePast) return activities.length;
     return activities.filter((a) => new Date(a.endDateTime).getTime() >= Date.now()).length;
@@ -126,10 +140,10 @@ export default function Home({ activities, fetchedAt, errorMessage }: HomeProps)
                   onChange={(e) => setSelectedSchool(e.target.value as SchoolKey | "")}
                   className={styles.select}
                 >
-                  <option value="">全部學校</option>
-                  {Object.values(SCHOOLS).map((s) => (
+                  <option value="">全部學校 ({totalForFilter})</option>
+                  {availableSchools.map((s) => (
                     <option key={s.key} value={s.key}>
-                      {s.shortName}
+                      {s.shortName} ({schoolCounts[s.key] || 0})
                     </option>
                   ))}
                 </select>

@@ -3,6 +3,10 @@ import { scrapeNccuActivities } from "./scrapers/nccu";
 import { scrapeNtuActivities } from "./scrapers/ntu";
 import { scrapeNthuActivities } from "./scrapers/nthu";
 import { scrapeNckuActivities } from "./scrapers/ncku";
+import { scrapeNycuActivities } from "./scrapers/nycu";
+import { scrapeNtnuActivities } from "./scrapers/ntnu";
+import { scrapeNcuActivities } from "./scrapers/ncu";
+import { scrapeNsysuActivities } from "./scrapers/nsysu";
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 分鐘
 
@@ -21,6 +25,10 @@ async function scrapeAll(): Promise<Activity[]> {
     { name: "ntu", run: () => scrapeNtuActivities() },
     { name: "nthu", run: () => scrapeNthuActivities() },
     { name: "ncku", run: () => scrapeNckuActivities() },
+    { name: "nycu", run: () => scrapeNycuActivities() },
+    { name: "ntnu", run: () => scrapeNtnuActivities() },
+    { name: "ncu", run: () => scrapeNcuActivities() },
+    { name: "nsysu", run: () => scrapeNsysuActivities() },
   ];
 
   const results = await Promise.allSettled(sources.map((s) => s.run()));

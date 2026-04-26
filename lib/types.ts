@@ -23,7 +23,7 @@ export const ACTIVITY_TYPES: ActivityType[] = [
   "其他",
 ];
 
-export type SchoolKey = "nccu" | "ntu" | "ncku" | "nthu" | "nycu" | "ntnu";
+export type SchoolKey = "nccu" | "ntu" | "ncku" | "nthu" | "nycu" | "ntnu" | "ncu" | "nsysu";
 
 export interface SchoolMeta {
   key: SchoolKey;
@@ -67,14 +67,28 @@ export const SCHOOLS: Record<SchoolKey, SchoolMeta> = {
     name: "國立陽明交通大學",
     shortName: "陽明交大",
     region: "北部",
-    homepageUrl: "https://career.nycu.edu.tw/",
+    homepageUrl: "https://osa.nycu.edu.tw/",
   },
   ntnu: {
     key: "ntnu",
     name: "國立臺灣師範大學",
     shortName: "師大",
     region: "北部",
-    homepageUrl: "https://career.sa.ntnu.edu.tw/",
+    homepageUrl: "https://careercenter.ntnu.edu.tw/",
+  },
+  ncu: {
+    key: "ncu",
+    name: "國立中央大學",
+    shortName: "中央",
+    region: "北部",
+    homepageUrl: "https://careercenter.ncu.edu.tw/",
+  },
+  nsysu: {
+    key: "nsysu",
+    name: "國立中山大學",
+    shortName: "中山",
+    region: "南部",
+    homepageUrl: "https://ag-osa.nsysu.edu.tw/",
   },
 };
 
