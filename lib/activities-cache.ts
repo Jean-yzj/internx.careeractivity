@@ -1,5 +1,8 @@
 import type { Activity } from "./types";
 import { scrapeNccuActivities } from "./scrapers/nccu";
+import { scrapeNtuActivities } from "./scrapers/ntu";
+import { scrapeNthuActivities } from "./scrapers/nthu";
+import { scrapeNckuActivities } from "./scrapers/ncku";
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 分鐘
 
@@ -15,6 +18,9 @@ async function scrapeAll(): Promise<Activity[]> {
   // 各校爬蟲在這裡平行執行;失敗的學校不阻擋其他學校
   const sources = [
     { name: "nccu", run: () => scrapeNccuActivities() },
+    { name: "ntu", run: () => scrapeNtuActivities() },
+    { name: "nthu", run: () => scrapeNthuActivities() },
+    { name: "ncku", run: () => scrapeNckuActivities() },
   ];
 
   const results = await Promise.allSettled(sources.map((s) => s.run()));

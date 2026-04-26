@@ -32,7 +32,7 @@ export default function About() {
             {Object.values(SCHOOLS).map((s) => (
               <li key={s.key}>
                 {s.name}
-                {s.key === "nccu" ? " ✅(已上線)" : " · 開發中"}
+                {["nccu", "ntu", "nthu", "ncku"].includes(s.key) ? " ✅(已上線)" : " · 開發中"}
                 {" "}—{" "}
                 <a
                   href={s.homepageUrl}
