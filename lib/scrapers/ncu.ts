@@ -36,10 +36,13 @@ function parseList(html: string): ListItem[] {
     let fullTitle = normalizeText($a.text());
     if (!fullTitle || fullTitle.length < 4) return;
 
-    // anchor 內含日期與點閱數,例如「2026-04-08點閱：580【活動】XXX」
-    // 先剝掉開頭的 YYYY-MM-DD、點閱次數
+    // NCU 的 anchor 文字含「[標題][日期][類別][重複的標題]」這種怪結構
+    // 策略:找第一個 YYYY-MM-DD 出現的位置,取它之前作為標題
+    const dateInTitle = fullTitle.match(/\d{4}[\-\/]\d{1,2}[\-\/]\d{1,2}/);
+    if (dateInTitle && dateInTitle.index !== undefined && dateInTitle.index > 4) {
+      fullTitle = fullTitle.slice(0, dateInTitle.index).trim();
+    }
     fullTitle = fullTitle
-      .replace(/^\d{4}[\-\/]\d{1,2}[\-\/]\d{1,2}\s*/, "")
       .replace(/^點閱[:：]\s*\d+\s*/, "")
       .replace(/\s*點閱[:：]\s*\d+\s*$/, "")
       .trim();
