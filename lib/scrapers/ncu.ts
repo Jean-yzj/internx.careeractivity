@@ -36,16 +36,18 @@ function parseList(html: string): ListItem[] {
     let fullTitle = normalizeText($a.text());
     if (!fullTitle || fullTitle.length < 4) return;
 
-    // NCU 的 anchor 文字含「[標題][日期][類別][重複的標題]」這種怪結構
-    // 策略:找第一個 YYYY-MM-DD 出現的位置,取它之前作為標題
-    const dateInTitle = fullTitle.match(/\d{4}[\-\/]\d{1,2}[\-\/]\d{1,2}/);
-    if (dateInTitle && dateInTitle.index !== undefined && dateInTitle.index > 4) {
-      fullTitle = fullTitle.slice(0, dateInTitle.index).trim();
-    }
+    // NCU anchor 文字結構:「YYYY-MM-DD點閱：N【類別】標題 YYYY-MM-DD【類別】標題(重複截斷)」
+    // 第 1 步:剝掉開頭的日期 + 點閱次數
     fullTitle = fullTitle
+      .replace(/^\d{4}[\-\/]\d{1,2}[\-\/]\d{1,2}\s*/, "")
       .replace(/^點閱[:：]\s*\d+\s*/, "")
-      .replace(/\s*點閱[:：]\s*\d+\s*$/, "")
       .trim();
+    // 第 2 步:剝掉中間出現的下一個日期之後的所有內容(那是重複)
+    const nextDate = fullTitle.match(/\d{4}[\-\/]\d{1,2}[\-\/]\d{1,2}/);
+    if (nextDate && nextDate.index !== undefined && nextDate.index > 5) {
+      fullTitle = fullTitle.slice(0, nextDate.index).trim();
+    }
+    fullTitle = fullTitle.replace(/\s*點閱[:：]\s*\d+\s*$/, "").trim();
 
     // 抓出前綴分類【XXX】
     const catMatch = fullTitle.match(/^【([^】]+)】/);
