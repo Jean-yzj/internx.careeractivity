@@ -70,14 +70,15 @@ function parseTable(html: string): RawRow[] {
       const venue = cells[3] || cells[cells.length - 1] || "";
 
       // 標題清理:
-      // 1) 把 cell 內換行壓成「; 」(同一格內常有「主標」+「副標」)
-      // 2) 移除前後書名號/星號/空白
-      // 3) 移除頭尾多餘 】「」 等符號
+      // 1) 移除開頭整段「【XXX】」前綴(典型結構「【系列講座】 實際題目」)
+      // 2) 把 cell 內換行壓成「; 」(同一格內常有「主標」+「副標」)
+      // 3) 折疊重複分號、移除前後書名號/星號/空白
       const title = titleRaw
+        .replace(/^\s*【[^】]+】\s*/, "")
         .replace(/\n+/g, "; ")
-        .replace(/^[「」『』《》【】\s*]+/, "")
-        .replace(/[「」『』《》【】\s*]+$/, "")
-        .replace(/【[^】]*】/g, (s) => s) // 保留中間的【XXX】
+        .replace(/(?:[;；]\s*){2,}/g, "; ")
+        .replace(/^[「」『』《》【】\s;；,，*]+/, "")
+        .replace(/[「」『』《》【】\s;；,，*]+$/, "")
         .replace(/\s+/g, " ")
         .trim();
       if (!title || title.length < 2) return;
