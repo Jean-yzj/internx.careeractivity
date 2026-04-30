@@ -120,24 +120,68 @@ async function scrapeAll(): Promise<Activity[]> {
       }
 
       // 強力 fallback:不論 cleanDescription 結果,若 description 開頭仍有
-      // 「【類別】+ 標題」或「標題」重複,直接砍掉
+      // 「【類別】+ 標題」或「標題」重複,直接砍掉。
+      // 用 NBSP/全形空白 normalize 後比對,避免空白字元差異導致比對失敗。
       if (out.description && out.title) {
         let d = out.description;
         const t = out.title;
-        // 開頭 = 標題 (無前綴)
-        if (d.startsWith(t)) {
-          d = d.slice(t.length).replace(/^\s+/, "");
+        const normSpace = (s: string) => s.replace(/[\xa0　  ]/g, " ").replace(/\s+/g, " ");
+        const dN = normSpace(d);
+        const tN = normSpace(t);
+
+        // 開頭 = 標題 (norm 後比對)
+        if (dN.startsWith(tN)) {
+          // 找到 title 在原始 d 中的結束位置(不含開頭已合併的空白)
+          let consumed = 0, ti = 0;
+          while (consumed < d.length && ti < t.length) {
+            const dc = d[consumed], tc = t[ti];
+            if (dc === tc) { consumed++; ti++; }
+            else if (/[\xa0　  \s]/.test(dc) && /\s/.test(tc)) { consumed++; ti++; }
+            else if (/[\xa0　  \s]/.test(dc)) { consumed++; }
+            else if (/\s/.test(tc)) { ti++; }
+            else break;
+          }
+          d = d.slice(consumed).replace(/^[\s\xa0　]+/, "");
         } else {
           // 開頭 = 【類別】+ 標題
-          const m = d.match(/^【[^】]{1,15}】\s*/);
-          if (m && d.slice(m[0].length).startsWith(t)) {
-            d = d.slice(m[0].length + t.length).replace(/^\s+/, "");
+          const m = d.match(/^【[^】]{1,15}】[\s\xa0]*/);
+          if (m) {
+            const after = d.slice(m[0].length);
+            const afterN = normSpace(after);
+            if (afterN.startsWith(tN)) {
+              let consumed = 0, ti = 0;
+              while (consumed < after.length && ti < t.length) {
+                const dc = after[consumed], tc = t[ti];
+                if (dc === tc) { consumed++; ti++; }
+                else if (/[\xa0　  \s]/.test(dc) && /\s/.test(tc)) { consumed++; ti++; }
+                else if (/[\xa0　  \s]/.test(dc)) { consumed++; }
+                else if (/\s/.test(tc)) { ti++; }
+                else break;
+              }
+              d = after.slice(consumed).replace(/^[\s\xa0　]+/, "");
+            }
           }
         }
+
         // 報名系統開頭單行 metadata
-        d = d.replace(/^(?:工作責任及紀律|問題解決|【[^】]+】\s*(?:關閉中|報名中|已截止|已額滿|持續學習))\s*\n+/, "");
+        d = d.replace(/^(?:工作責任及紀律|問題解決|反應熱烈|【[^】]+】\s*(?:關閉中|報名中|已截止|已額滿|持續學習))\s*\n+/, "");
+
+        // NCU breadcrumb 殘留:「重要訊息 News首頁重要訊息列表詳情內容【...】」
+        d = d.replace(/^重要訊息\s*News\s*首頁\s*重要訊息列表\s*詳情內容\s*/, "");
+        d = d.replace(/^首頁\s*[›>»]\s*[^\n]{0,50}\s*[›>»]?\s*[^\n]{0,30}\n/, "");
+
+        // TKU 詳情頁 nav tabs 殘留
+        d = d.replace(/^活動報名總覽\s*│?\s*English\s*\n+/, "");
+        d = d.replace(/^(?:活動資訊|校內報名|個資蒐集告知|iCalendar)\s*\n+/g, "");
+        // 連續多個 nav tab 一次清掉
+        for (let i = 0; i < 5; i++) {
+          const cleaned = d.replace(/^(?:活動資訊|校內報名|個資蒐集告知|iCalendar|活動報名總覽|English)\s*\n+/, "");
+          if (cleaned === d) break;
+          d = cleaned;
+        }
+
         if (d !== out.description) {
-          out = { ...out, description: d };
+          out = { ...out, description: d.trim() };
         }
       }
 
