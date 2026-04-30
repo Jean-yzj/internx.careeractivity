@@ -4,7 +4,7 @@
  * - 詳情頁:/event/{id}
  */
 import * as cheerio from "cheerio";
-import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled } from "./common";
+import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled, extractMainContent, isLikelyNavText } from "./common";
 import type { Activity, ActivityType } from "../types";
 
 const BASE = "https://ccd.nthu.edu.tw";
@@ -78,7 +78,7 @@ interface DetailFields {
 
 function parseDetail(html: string, fallbackDate: string): DetailFields {
   const $ = cheerio.load(html);
-  const bodyText = normalizeText($("main, article, .content, #content, body").first().text());
+  const bodyText = extractMainContent($, [".article-content", ".announcement-detail", ".event-detail"]);
 
   // 限制長度避免吃到下一個欄位;只取到第一個常見欄位分隔符前
   const STOP = /[\n。;；]|報名|時\s*間|地\s*點|地\s*址|對\s*象|名\s*額|費\s*用|聯絡/;
@@ -111,7 +111,8 @@ function parseDetail(html: string, fallbackDate: string): DetailFields {
     endDateTime = range.end;
   }
 
-  let description = normalizeText($("main, article, .content, #content").first().text()).slice(0, 3000);
+  // 用已清過的 bodyText,並再做品質判斷
+  let description = isLikelyNavText(bodyText) ? "" : bodyText.slice(0, 3000);
   if (description.length < 50) description = "詳情請見清大職涯發展組原始頁面。";
 
   const registrationDeadline = deadlineText ? parseDateLoose(deadlineText) : null;

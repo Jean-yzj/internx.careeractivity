@@ -133,6 +133,97 @@ export function normalizeText(s: string): string {
     .trim();
 }
 
+/**
+ * \u5f9e cheerio \u7269\u4ef6\u6293\u4e3b\u8981\u5167\u5bb9,\u53bb\u6389\u5c0e\u89bd\u5217/\u9801\u5c3e/\u5ee3\u544a/CSS/JS \u7b49\u96dc\u8a0a\u3002
+ *
+ * \u6d41\u7a0b:
+ *   1. \u628a\u6574\u9846 DOM \u4e2d\u7684 script/style/nav/header/footer/aside \u7b49\u5148\u79fb\u9664
+ *   2. \u5617\u8a66\u5e38\u898b\u7684\u300c\u4e3b\u5167\u5bb9\u300dselector,\u6311\u6587\u5b57\u6700\u8c50\u5bcc\u7684\u90a3\u500b
+ *   3. \u6c92\u6709\u547d\u4e2d\u5c31\u56de\u50b3\u5168 body \u6587\u5b57(\u5df2\u6e05\u904e)
+ */
+export function extractMainContent($: any, customSelectors: string[] = []): string {
+  // 1) \u79fb\u9664\u660e\u986f\u975e\u5167\u5bb9\u5143\u7d20(\u76f4\u63a5\u5f9e DOM \u62ff\u6389,\u5f8c\u9762 .text() \u624d\u4e0d\u6703\u62ff\u5230)
+  $(
+    "script, style, noscript, iframe, " +
+    "nav, header, footer, aside, " +
+    '[role="navigation"], [role="banner"], [role="contentinfo"], ' +
+    ".nav, .navbar, .navigation, .menu, .sidebar, .breadcrumb, .breadcrumbs, " +
+    ".header, .footer, .top-bar, .bottom-bar, .copyright, " +
+    ".social-links, .share-buttons, .share, .pagination, " +
+    "#header, #footer, #nav, #navigation, #menu, #sidebar, #top, #bottom"
+  ).remove();
+
+  // 2) \u5617\u8a66\u5e38\u898b\u5167\u5bb9\u5bb9\u5668,\u6311\u6587\u5b57\u6700\u591a\u7684\u90a3\u500b
+  const selectors = [
+    ...customSelectors,
+    "main",
+    "article",
+    "[role='main']",
+    ".main-content", ".content-main", ".post-content", ".article-content",
+    ".news-detail", ".announcement-detail", ".event-detail", ".activity-detail",
+    "#main", "#content", "#main-content", "#article",
+    ".content", ".main", ".inner",
+  ];
+
+  let best = "";
+  for (const sel of selectors) {
+    try {
+      const text = normalizeText($(sel).first().text());
+      if (text.length > best.length) best = text;
+    } catch { /* selector \u53ef\u80fd\u7121\u6548,\u5ffd\u7565 */ }
+  }
+
+  if (best.length > 50) return best;
+
+  // 3) fallback: \u6574\u500b body
+  return normalizeText($("body").text());
+}
+
+/**
+ * \u5075\u6e2c description \u662f\u5426\u770b\u8d77\u4f86\u662f\u300c\u5c0e\u89bd\u5217\u96dc\u8a0a\u300d\u800c\u975e\u771f\u6b63\u6d3b\u52d5\u63cf\u8ff0\u3002
+ *
+ * \u5224\u5b9a\u539f\u5247(\u4efb\u4e00\u6210\u7acb\u5c31\u7b97\u96dc\u8a0a):
+ *   - \u542b\u592a\u591a\u7368\u7acb\u7684\u55ae\u5b57\u884c(\u6bcf\u884c \u2264 4 \u5b57),\u5178\u578b nav menu \u6a23\u5f0f
+ *   - \u91cd\u8907\u51fa\u73fe\u300c\u95dc\u65bc\u8077\u6daf\u767c\u5c55\u4e2d\u5fc3 \u7c21\u4ecb \u516c\u544a ...\u300d\u985e\u9078\u55ae\u95dc\u9375\u5b57
+ *   - \u542b\u5927\u91cf CSS / JS \u7a0b\u5f0f\u78bc\u7247\u6bb5
+ *   - \u6574\u6bb5\u4e2d\u6587\u5b57\u6578\u4f54\u6bd4\u904e\u4f4e
+ */
+export function isLikelyNavText(text: string): boolean {
+  if (!text) return true;
+  const t = text.trim();
+  if (t.length < 30) return true;
+
+  // CSS / JS \u6f0f\u9032\u4f86\u7684\u5fb5\u5146
+  if (/\.[a-zA-Z][\w\-]*\s*\{|\}\s*\.[a-zA-Z]/.test(t)) return true;
+  if (/<\/?script|<\/?style|function\s*\(|var\s+\w+\s*=/.test(t)) return true;
+
+  // \u884c\u5f88\u77ed\u7684\u6bd4\u4f8b(\u2264 4 \u5b57\u7684\u884c\u4f54\u8d85\u904e 40%)
+  const lines = t.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length > 5) {
+    const shortRatio = lines.filter(l => l.length <= 4).length / lines.length;
+    if (shortRatio > 0.4) return true;
+  }
+
+  // \u4e2d\u6587\u5b57\u4f54\u6bd4(< 30% \u8996\u70ba\u975e\u4e2d\u6587\u6d3b\u52d5\u63cf\u8ff0)
+  const cjk = (t.match(/[\u4e00-\u9fff]/g) || []).length;
+  if (cjk / t.length < 0.15) return true;
+
+  return false;
+}
+
+/**
+ * \u62bd\u53d6\u300c\u4e7e\u6de8\u7684\u6d3b\u52d5\u63cf\u8ff0\u300d:
+ *   - \u7528 extractMainContent \u53d6\u4e3b\u5167\u5bb9
+ *   - \u7528 isLikelyNavText \u5224\u65b7\u662f\u4e0d\u662f\u96dc\u8a0a
+ *   - \u96dc\u8a0a\u5247\u56de\u50b3 null,\u8b93\u4e0a\u5c64\u6c7a\u5b9a fallback \u6587\u6848
+ */
+export function extractDescription($: any, customSelectors: string[] = []): string | null {
+  const raw = extractMainContent($, customSelectors);
+  if (isLikelyNavText(raw)) return null;
+  // \u622a 2500 \u5b57\u4ee5\u514d payload \u904e\u5927
+  return raw.slice(0, 2500);
+}
+
 export function settled<T>(promises: Array<Promise<T>>, label: string): Promise<T[]> {
   return Promise.allSettled(promises).then((results) => {
     const ok: T[] = [];

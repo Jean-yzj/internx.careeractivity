@@ -7,7 +7,7 @@
  * 過濾:只取【講座】【活動】,排除【徵才】【工讀】(那是工作機會)
  */
 import * as cheerio from "cheerio";
-import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled } from "./common";
+import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled, extractMainContent, isLikelyNavText } from "./common";
 import type { Activity, ActivityType } from "../types";
 
 const BASE = "https://ag-osa.nsysu.edu.tw";
@@ -61,7 +61,7 @@ interface DetailFields {
 
 function parseDetail(html: string, fallbackDate: string): DetailFields {
   const $ = cheerio.load(html);
-  const bodyText = normalizeText($("main, article, .content, #content, body").first().text());
+  const bodyText = extractMainContent($, [".mpgdetail", ".article-body", ".meditor"]);
 
   const STOP = /[\n。;；]|報名|時\s*間|地\s*點|地\s*址|對\s*象|名\s*額|費\s*用|聯絡/;
   const grab = (re: RegExp, max = 80): string => {
@@ -92,8 +92,10 @@ function parseDetail(html: string, fallbackDate: string): DetailFields {
     if (!regLink) regLink = $(a).attr("href") || null;
   });
 
+  const cleanDesc = isLikelyNavText(bodyText) ? "" : bodyText.slice(0, 2500);
+
   return {
-    description: bodyText.slice(0, 2500) || "詳情請見中山大學職涯組原始頁面。",
+    description: cleanDesc || "詳情請見中山大學職涯組原始頁面。",
     venue: venueText,
     startDateTime: start,
     endDateTime: end,

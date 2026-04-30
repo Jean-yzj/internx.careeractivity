@@ -5,7 +5,7 @@
  * - 詳情頁:/board/detail/sn/{sn}
  */
 import * as cheerio from "cheerio";
-import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled } from "./common";
+import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled, extractMainContent, isLikelyNavText } from "./common";
 import type { Activity, ActivityType } from "../types";
 
 const BASE = "https://career.ntu.edu.tw";
@@ -58,7 +58,7 @@ interface DetailFields {
 
 function parseDetail(html: string, fallbackDate: string): DetailFields {
   const $ = cheerio.load(html);
-  const bodyText = normalizeText($("article, .detail, .board-detail, main, .content").first().text() || $("body").text());
+  const bodyText = extractMainContent($, [".board-detail", ".detail", ".article-content", ".post-content"]);
 
   const timeMatch = bodyText.match(/(?:活動時間|時\s*間|日\s*期)[:：\s]+([^\n。]{0,80})/);
   const venueMatch = bodyText.match(/(?:地\s*點|地點|地址)[:：\s]+([^\n。]{0,120})/);
@@ -85,13 +85,8 @@ function parseDetail(html: string, fallbackDate: string): DetailFields {
     registrationDeadline = parseDateLoose(deadlineMatch[1]);
   }
 
-  let description = "";
-  const main = $("article, .board-detail, .detail, main, #content").first();
-  if (main.length) {
-    description = normalizeText(main.text()).slice(0, 3000);
-  } else {
-    description = normalizeText($("body").text()).slice(0, 1500);
-  }
+  // bodyText 已經是 extractMainContent 清過 nav/script/style 的版本
+  let description = isLikelyNavText(bodyText) ? "" : bodyText.slice(0, 3000);
   if (description.length < 30) description = "詳情請見台大職涯中心原始公告頁面。";
 
   return {

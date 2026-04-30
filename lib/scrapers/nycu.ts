@@ -4,7 +4,7 @@
  * - 詳情: /osa/ch/app/data/view?module=nycu0106&id=3601&serno={id}
  */
 import * as cheerio from "cheerio";
-import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled } from "./common";
+import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled, extractMainContent, isLikelyNavText } from "./common";
 import type { Activity, ActivityType } from "../types";
 
 const BASE = "https://osa.nycu.edu.tw";
@@ -71,7 +71,7 @@ interface DetailFields {
 
 function parseDetail(html: string, fallbackDate: string): DetailFields {
   const $ = cheerio.load(html);
-  const bodyText = normalizeText($("main, article, .content, #content, .data-view, body").first().text());
+  const bodyText = extractMainContent($, [".data-view", ".article-content", ".content-body"]);
 
   const STOP = /[\n。;；]|報名|時\s*間|地\s*點|地\s*址|對\s*象|名\s*額|費\s*用|聯絡/;
   const grab = (re: RegExp, max = 80): string => {
@@ -103,7 +103,7 @@ function parseDetail(html: string, fallbackDate: string): DetailFields {
     if (!regLink) regLink = $(a).attr("href") || null;
   });
 
-  const description = bodyText.slice(0, 2500) || "詳情請見陽明交通大學職涯講座原始頁面。";
+  const description = (isLikelyNavText(bodyText) ? "" : bodyText.slice(0, 2500)) || "詳情請見陽明交通大學職涯講座原始頁面。";
 
   return {
     description,

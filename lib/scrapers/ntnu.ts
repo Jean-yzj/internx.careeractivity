@@ -7,7 +7,7 @@
  * - 校外職涯活動: /list.php?type=info-recruit → 詳情 /list-detail.php?type=info-recruit&sid={id}
  */
 import * as cheerio from "cheerio";
-import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled } from "./common";
+import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled, extractMainContent, isLikelyNavText } from "./common";
 import type { Activity, ActivityType } from "../types";
 
 const BASE = "https://careercenter.ntnu.edu.tw";
@@ -57,7 +57,7 @@ interface DetailFields {
 
 function parseDetail(html: string, fallbackDate: string): DetailFields {
   const $ = cheerio.load(html);
-  const bodyText = normalizeText($("main, article, .content, #content, body").first().text());
+  const bodyText = extractMainContent($, [".main-content", ".inner-content", ".article-body"]);
 
   const STOP = /[\n。;；]|報名|時\s*間|地\s*點|地\s*址|對\s*象|名\s*額|費\s*用|聯絡/;
   const grab = (re: RegExp, max = 80): string => {
@@ -89,8 +89,10 @@ function parseDetail(html: string, fallbackDate: string): DetailFields {
     if (!regLink) regLink = $(a).attr("href") || null;
   });
 
+  const cleanDesc = isLikelyNavText(bodyText) ? "" : bodyText.slice(0, 2500);
+
   return {
-    description: bodyText.slice(0, 2500) || "詳情請見台師大職涯資源網原始頁面。",
+    description: cleanDesc || "詳情請見台師大職涯資源網原始頁面。",
     venue: venueText,
     startDateTime: start,
     endDateTime: end,

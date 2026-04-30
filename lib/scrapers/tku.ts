@@ -9,7 +9,7 @@
  * 因為沒有明確「職涯」分類,以關鍵字過濾標題:職涯/履歷/面試/實習/徵才/業界/業師/校友/職場/求職
  */
 import * as cheerio from "cheerio";
-import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled } from "./common";
+import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled, extractMainContent, isLikelyNavText } from "./common";
 import type { Activity, ActivityType } from "../types";
 
 const BASE = "https://enroll.tku.edu.tw";
@@ -109,7 +109,7 @@ interface DetailFields {
 
 function parseDetail(html: string, fallbackStart: string, fallbackEnd: string, fallbackRegEnd: string): DetailFields {
   const $ = cheerio.load(html);
-  const bodyText = normalizeText($("main, article, .content, #content, body, form").first().text());
+  const bodyText = extractMainContent($, [".course-detail", ".activity-detail", ".event-content", "form"]);
 
   const STOP = /[\n。;；]|報名|時\s*間|地\s*點|地\s*址|對\s*象|名\s*額|費\s*用|聯絡/;
   const grab = (re: RegExp, max = 100): string => {
@@ -137,7 +137,7 @@ function parseDetail(html: string, fallbackStart: string, fallbackEnd: string, f
   }
 
   return {
-    description: bodyText.slice(0, 2500) || "詳情請見淡江大學活動報名系統原始頁面。",
+    description: (isLikelyNavText(bodyText) ? "" : bodyText.slice(0, 2500)) || "詳情請見淡江大學活動報名系統原始頁面。",
     venue: venueText,
     startDateTime: start,
     endDateTime: end,
