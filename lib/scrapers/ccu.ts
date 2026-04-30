@@ -34,6 +34,22 @@ interface ListItem {
   defaultType: ActivityType;
 }
 
+// 中正徵才月網的標題很多是行政公告(停車、棚架、預約狀況、報名公告等)而非活動本身。
+// 這些一律過濾掉。
+const NON_EVENT_REJECT = [
+  "停車", "車輛", "棚架", "施工", "規定", "配置圖", "場地",
+  "預約狀況", "報名公告", "招商", "招募廠商", "廠商招募",
+  "宣傳片", "形象片", "影片", "回顧", "懶人包", "成果報告",
+  "重要事項", "注意事項", "須知", "辦法", "流程", "簡介",
+];
+
+function isRealEvent(title: string): boolean {
+  if (NON_EVENT_REJECT.some((kw) => title.includes(kw))) return false;
+  // 「公告」開頭的標題 + 「企業/廠商報名」字眼通常是給雇主的徵才資訊,跳過
+  if (/^【?公告】?/.test(title) && /(企業報名|廠商報名|報名公告)/.test(title)) return false;
+  return true;
+}
+
 function parseList(html: string, block: string, defaultType: ActivityType): ListItem[] {
   const $ = cheerio.load(html);
   const items: ListItem[] = [];
@@ -47,6 +63,7 @@ function parseList(html: string, block: string, defaultType: ActivityType): List
     if (items.find((x) => x.id === id)) return;
     const fullTitle = normalizeText($a.text());
     if (!fullTitle || fullTitle.length < 4) return;
+    if (!isRealEvent(fullTitle)) return; // 過濾行政公告
 
     const $row = $a.closest("li, tr, div, article");
     const rowText = normalizeText($row.text());
