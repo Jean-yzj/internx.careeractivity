@@ -22,6 +22,11 @@ interface CacheEntry {
 let cache: CacheEntry | null = null;
 let inflight: Promise<Activity[]> | null = null;
 
+// 各校最後一次成功的 raw scrape 結果(transient 失敗時的保險)
+// 例:NCCU server 偶爾 timeout 30 秒,空陣列回來,我們用上次的結果
+const schoolFallback: Record<string, { fetchedAt: number; activities: Activity[] }> = {};
+const SCHOOL_FALLBACK_MAX_AGE = 24 * 60 * 60 * 1000; // 過 24 小時就放棄
+
 async function scrapeAll(): Promise<Activity[]> {
   // 各校爬蟲在這裡平行執行;失敗的學校不阻擋其他學校
   const sources = [
@@ -43,11 +48,25 @@ async function scrapeAll(): Promise<Activity[]> {
 
   const results = await Promise.allSettled(sources.map((s) => s.run()));
   const rawActivities: Activity[] = [];
+  const NOW_MS = Date.now();
   results.forEach((r, idx) => {
-    if (r.status === "fulfilled") {
+    const name = sources[idx].name;
+    if (r.status === "fulfilled" && r.value.length > 0) {
+      // 本次成功,更新 fallback cache
+      schoolFallback[name] = { fetchedAt: NOW_MS, activities: r.value };
       rawActivities.push(...r.value);
     } else {
-      console.error(`[scraper:${sources[idx].name}] failed`, r.reason);
+      // 本次失敗或回 0 → 嘗試用 fallback cache(若 < 24h)
+      const fb = schoolFallback[name];
+      if (fb && NOW_MS - fb.fetchedAt < SCHOOL_FALLBACK_MAX_AGE) {
+        const ageMin = Math.floor((NOW_MS - fb.fetchedAt) / 60000);
+        console.warn(
+          `[scraper:${name}] 本次無資料,使用 ${ageMin} 分鐘前的快取(${fb.activities.length} 筆)`
+        );
+        rawActivities.push(...fb.activities);
+      } else if (r.status === "rejected") {
+        console.error(`[scraper:${name}] failed`, r.reason);
+      }
     }
   });
 

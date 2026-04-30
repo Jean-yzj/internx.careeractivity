@@ -52,6 +52,7 @@ function httpsGet(url: string): Promise<string> {
         res.on("error", reject);
       }
     );
+    req.setTimeout(30000, () => req.destroy(new Error("Request timeout 30s")));
     req.on("error", reject);
   });
 }
@@ -86,10 +87,22 @@ function httpsPost(url: string, formBody: string): Promise<string> {
         res.on("error", reject);
       }
     );
+    req.setTimeout(30000, () => req.destroy(new Error("Request timeout 30s")));
     req.on("error", reject);
     req.write(body);
     req.end();
   });
+}
+
+// 重試包裝:NCCU server 偶爾 timeout / 連線重置,自動重試 1 次
+async function withRetry<T>(fn: () => Promise<T>, label = "nccu"): Promise<T> {
+  try {
+    return await fn();
+  } catch (err: any) {
+    console.warn(`[${label}] 第 1 次失敗: ${err?.message},等 3 秒後重試`);
+    await new Promise((r) => setTimeout(r, 3000));
+    return await fn();
+  }
 }
 
 // NCCU 改用 common.ts 的 inferActivityType (規則更完整),
@@ -383,7 +396,13 @@ function buildActivity(listItem: ListItem, detail: DetailFields | null): Activit
 }
 
 export async function scrapeNccuActivities(options?: { limit?: number }): Promise<Activity[]> {
-  const listItems = await fetchList();
+  let listItems: ListItem[] = [];
+  try {
+    listItems = await withRetry(fetchList, "nccu:list");
+  } catch (err: any) {
+    console.error(`[nccu] 列表抓取失敗(已重試):${err?.message}`);
+    return [];
+  }
   if (!listItems || listItems.length === 0) return [];
 
   const seen = new Set<string>();
