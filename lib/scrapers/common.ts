@@ -62,16 +62,16 @@ export async function fetchHtml(url: string, opts?: { timeoutMs?: number; useLeg
 export function inferActivityType(title: string): ActivityType | null {
   if (!title) return null;
   const rules: Array<[RegExp, ActivityType]> = [
-    [/企業參訪|產業參訪|公司參訪|參訪/, "企業參訪"],
-    [/博覽會|徵才博覽|校園徵才/, "博覽會"],
-    [/說明會/, "說明會"],
-    [/工作坊|workshop|履歷健檢|履歷健診|模擬面試/i, "工作坊"],
-    [/競賽|大賽|錦標賽|競試|hackathon|hack/i, "競賽"],
-    [/校園大使|大使招募/, "校園大使"],
-    [/創業|新創|startup/i, "創業活動"],
-    [/交流會|交流活動|分享會|沙龍|座談|gathering|networking/i, "交流活動"],
-    [/講座|演講|論壇|大師|名人/, "講座"],
-    [/徵才|招募|求才|誠徵|聘/, "其他"],
+    [/企業參訪|產業參訪|公司參訪|參訪|走訪|tour/i, "企業參訪"],
+    [/博覽會|徵才博覽|校園徵才|盛典|expo/i, "博覽會"],
+    [/說明會|info\s*session/i, "說明會"],
+    [/工作坊|workshop|履歷健檢|履歷健診|模擬面試|實作課|實作營/i, "工作坊"],
+    [/競賽|大賽|錦標賽|競試|hackathon|hack|挑戰賽/i, "競賽"],
+    [/校園大使|大使招募|Passion\s*Worker|學生團隊招募|學生大使|實習生招募|工讀生|志工招募/i, "校園大使"],
+    [/創業|新創|startup|incubat/i, "創業活動"],
+    [/交流會|交流活動|分享會|沙龍|座談|gathering|networking|mixer|mentor.*tea|交流晚會/i, "交流活動"],
+    [/講座|演講|論壇|forum|大師|名人|分享|talk|對談|心法|引領|啟動|計畫.*發展|職涯探索|職涯發展|職涯規劃|海外/i, "講座"],
+    [/徵才|招募|求才|誠徵|聘|hiring/i, "其他"],
   ];
   for (const [re, type] of rules) {
     if (re.test(title)) return type;

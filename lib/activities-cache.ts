@@ -53,26 +53,67 @@ async function scrapeAll(): Promise<Activity[]> {
   // 全域品質過濾 — 確保使用者看到的每一筆都符合最低品質
   const NOW = Date.now();
   const ONE_YEAR_FUTURE = NOW + 365 * 24 * 3600 * 1000;
-  const ONE_YEAR_PAST = NOW - 365 * 24 * 3600 * 1000;
+  const NINETY_DAYS_AGO = NOW - 90 * 24 * 3600 * 1000;
 
-  const activities = rawActivities.filter((a) => {
-    // 1) 標題太短或空 → 丟棄
-    if (!a.title || a.title.trim().length < 4) return false;
+  const activities = rawActivities
+    .filter((a) => {
+      // 1) 標題太短或空 → 丟棄
+      if (!a.title || a.title.trim().length < 4) return false;
 
-    // 2) 日期不合理(超過一年前 / 一年後) → 丟棄(通常是日期解析失敗導致 fallback 到怪值)
-    const start = new Date(a.startDateTime).getTime();
-    if (Number.isNaN(start)) return false;
-    if (start < ONE_YEAR_PAST || start > ONE_YEAR_FUTURE) return false;
+      // 2) 起始日期必須有效且在合理範圍(< 1 年後)
+      const start = new Date(a.startDateTime).getTime();
+      if (Number.isNaN(start)) return false;
+      if (start > ONE_YEAR_FUTURE) return false;
 
-    // 3) end < start → 丟棄
-    const end = new Date(a.endDateTime).getTime();
-    if (Number.isNaN(end) || end < start) return false;
+      // 3) end < start → 丟棄
+      const end = new Date(a.endDateTime).getTime();
+      if (Number.isNaN(end) || end < start) return false;
 
-    // 4) sourceUrl 必須存在
-    if (!a.sourceUrl || !/^https?:\/\//.test(a.sourceUrl)) return false;
+      // 4) 結束已超過 90 天 → 丟棄(過期太久,使用者不需要看到)
+      if (end < NINETY_DAYS_AGO) return false;
 
-    return true;
-  });
+      // 5) sourceUrl 必須存在
+      if (!a.sourceUrl || !/^https?:\/\//.test(a.sourceUrl)) return false;
+
+      return true;
+    })
+    .map((a) => {
+      let out = a;
+
+      // 修正:報名截止日不該晚於活動開始日,若有矛盾就清掉 deadline
+      if (out.registrationDeadline) {
+        const rd = new Date(out.registrationDeadline).getTime();
+        const sd = new Date(out.startDateTime).getTime();
+        if (rd > sd) {
+          out = { ...out, registrationDeadline: null };
+        }
+      }
+
+      // 詳情頁抓不到內容(常見於 NYCU 等需登入站點)時,
+      // 用 fallback 文案,但盡量補齊有用資訊
+      const desc = out.description || "";
+      const isLowQualityDesc =
+        desc.length < 50 && /詳情請見.+原始頁面/.test(desc);
+      if (isLowQualityDesc) {
+        const startDate = new Date(out.startDateTime);
+        const dateStr = `${startDate.getFullYear()}/${(startDate.getMonth() + 1)
+          .toString()
+          .padStart(2, "0")}/${startDate.getDate().toString().padStart(2, "0")}`;
+        const enriched = [
+          `📌 活動類型:${out.activityType}`,
+          `🏛 主辦單位:${out.organizerName || "—"}`,
+          `📅 預計舉辦:${dateStr}(以原始公告為準)`,
+          out.venueAddress ? `📍 地點:${out.venueAddress}` : "",
+          "",
+          "由於此活動的詳情頁需登入或無法直接擷取,完整時間、地點、報名方式、講者資訊等,請點選下方「外部連結」前往原始公告查看。",
+        ]
+          .filter(Boolean)
+          .join("\n");
+        out = { ...out, description: enriched };
+      }
+
+      return out;
+    });
 
   // 依活動開始時間遞增排序(最近的活動在前)
   activities.sort((a, b) => {
