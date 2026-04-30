@@ -100,6 +100,28 @@ async function scrapeAll(): Promise<Activity[]> {
         }
       }
 
+      // 強力 fallback:不論 cleanDescription 結果,若 description 開頭仍有
+      // 「【類別】+ 標題」或「標題」重複,直接砍掉
+      if (out.description && out.title) {
+        let d = out.description;
+        const t = out.title;
+        // 開頭 = 標題 (無前綴)
+        if (d.startsWith(t)) {
+          d = d.slice(t.length).replace(/^\s+/, "");
+        } else {
+          // 開頭 = 【類別】+ 標題
+          const m = d.match(/^【[^】]{1,15}】\s*/);
+          if (m && d.slice(m[0].length).startsWith(t)) {
+            d = d.slice(m[0].length + t.length).replace(/^\s+/, "");
+          }
+        }
+        // 報名系統開頭單行 metadata
+        d = d.replace(/^(?:工作責任及紀律|問題解決|【[^】]+】\s*(?:關閉中|報名中|已截止|已額滿|持續學習))\s*\n+/, "");
+        if (d !== out.description) {
+          out = { ...out, description: d };
+        }
+      }
+
       // 修正:報名截止日不該晚於活動開始日,若有矛盾就清掉 deadline
       if (out.registrationDeadline) {
         const rd = new Date(out.registrationDeadline).getTime();
