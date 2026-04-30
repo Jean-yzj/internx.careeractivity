@@ -197,6 +197,11 @@ export function isLikelyNavText(text: string): boolean {
   if (/\.[a-zA-Z][\w\-]*\s*\{|\}\s*\.[a-zA-Z]/.test(t)) return true;
   if (/<\/?script|<\/?style|function\s*\(|var\s+\w+\s*=/.test(t)) return true;
 
+  // \u8a9e\u8a00\u5207\u63db\u6309\u9215(\u4e2d / EN / \u4e2d\u6587 / English) \u2014 \u53ea\u6709 nav menu \u624d\u6703\u9019\u6a23\u6392\u5217
+  if (/\u4e2d\s*\n?\s*EN(?!\w)/i.test(t)) return true;
+  if (/(?:^|\s)EN\s+\u4e2d(?:\s|$)/i.test(t)) return true;
+  if (/\u4e2d\u6587\s+English/i.test(t) || /English\s+\u4e2d\u6587/i.test(t)) return true;
+
   // \u884c\u5f88\u77ed\u7684\u6bd4\u4f8b(\u2264 4 \u5b57\u7684\u884c\u4f54\u8d85\u904e 40%)
   const lines = t.split("\n").map(l => l.trim()).filter(l => l.length > 0);
   if (lines.length > 5) {
@@ -204,9 +209,19 @@ export function isLikelyNavText(text: string): boolean {
     if (shortRatio > 0.4) return true;
   }
 
-  // \u4e2d\u6587\u5b57\u4f54\u6bd4(< 30% \u8996\u70ba\u975e\u4e2d\u6587\u6d3b\u52d5\u63cf\u8ff0)
+  // \u7ad9\u540d\u91cd\u8907(\u5178\u578b nav \u628a\u7ad9\u6a19\u984c\u91cd\u8907\u51fa\u73fe)
+  const siteTitleMatches = t.match(/(?:Career Center|\u8077\u6daf\u767c\u5c55\u4e2d\u5fc3|\u8077\u6daf\u4e2d\u5fc3|\u8077\u6daf\u767c\u5c55\u7d44|\u5b78\u751f\u4e8b\u52d9\u8655)/g) || [];
+  if (siteTitleMatches.length >= 3) return true;
+
+  // \u4e2d\u6587\u5b57\u4f54\u6bd4(< 15% \u8996\u70ba\u975e\u4e2d\u6587\u6d3b\u52d5\u63cf\u8ff0)
   const cjk = (t.match(/[\u4e00-\u9fff]/g) || []).length;
   if (cjk / t.length < 0.15) return true;
+
+  // \u7d14\u7cb9\u7684\u300c\u65b7\u53e5\u5c11\u300d\u5167\u5bb9 \u2014 \u6c92\u6709\u4efb\u4f55\u53e5\u865f/\u9017\u865f/\u5192\u865f\u7684\u9577\u6587,\u901a\u5e38\u662f nav \u540d\u55ae
+  if (t.length < 500) {
+    const punctCount = (t.match(/[\uff0c\u3002;\uff1b:\uff1a\u3001\uff01?\uff1f]/g) || []).length;
+    if (punctCount < 2) return true;
+  }
 
   return false;
 }
