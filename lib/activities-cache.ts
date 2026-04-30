@@ -5,10 +5,11 @@ import { scrapeNthuActivities } from "./scrapers/nthu";
 import { scrapeNckuActivities } from "./scrapers/ncku";
 import { scrapeNycuActivities } from "./scrapers/nycu";
 import { scrapeNtnuActivities } from "./scrapers/ntnu";
-// 暫時下架的爬蟲(資料源是「校外活動」轉發 / 與職涯關聯弱):
-// import { scrapeNcuActivities } from "./scrapers/ncu";
-// import { scrapeNsysuActivities } from "./scrapers/nsysu";
-// import { scrapeTkuActivities } from "./scrapers/tku";
+import { scrapeNcuActivities } from "./scrapers/ncu";
+import { scrapeNsysuActivities } from "./scrapers/nsysu";
+import { scrapeTkuActivities } from "./scrapers/tku";
+import { scrapeCcuActivities } from "./scrapers/ccu";
+import { scrapeNchuActivities } from "./scrapers/nchu";
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 分鐘
 
@@ -22,14 +23,21 @@ let inflight: Promise<Activity[]> | null = null;
 
 async function scrapeAll(): Promise<Activity[]> {
   // 各校爬蟲在這裡平行執行;失敗的學校不阻擋其他學校
-  // 6 大校 — 全部都是該校職涯中心親自舉辦的活動,不含他校轉發
   const sources = [
+    // 5 大校 + 師大
     { name: "nccu", run: () => scrapeNccuActivities() },
     { name: "ntu", run: () => scrapeNtuActivities() },
     { name: "nthu", run: () => scrapeNthuActivities() },
     { name: "ncku", run: () => scrapeNckuActivities() },
     { name: "nycu", run: () => scrapeNycuActivities() },
     { name: "ntnu", run: () => scrapeNtnuActivities() },
+    // 中字輩
+    { name: "ncu", run: () => scrapeNcuActivities() },     // 中央
+    { name: "nchu", run: () => scrapeNchuActivities() },   // 中興
+    { name: "ccu", run: () => scrapeCcuActivities() },     // 中正
+    { name: "nsysu", run: () => scrapeNsysuActivities() }, // 中山
+    // 雙北
+    { name: "tku", run: () => scrapeTkuActivities() },     // 淡江(新北)
   ];
 
   const results = await Promise.allSettled(sources.map((s) => s.run()));

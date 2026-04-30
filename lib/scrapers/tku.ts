@@ -15,11 +15,18 @@ import type { Activity, ActivityType } from "../types";
 const BASE = "https://enroll.tku.edu.tw";
 const PAGES_TO_SCAN = 5;
 
+// 職涯活動的核心關鍵字 — 標題必含其中之一才會被收錄
 const CAREER_KEYWORDS = [
   "職涯", "履歷", "面試", "實習", "徵才", "業界", "業師", "校友",
-  "職場", "求職", "企業參訪", "校園徵才", "說明會", "招募", "就業",
+  "職場", "求職", "企業參訪", "校園徵才", "招募", "就業", "業界導師",
   "職場力", "職能", "選才", "職涯探索", "職場新鮮人", "畢業生",
-  "AI", "生成式", "科技", "證照", "轉職",
+  "轉職", "薪資", "面談", "求職力",
+];
+
+// 非職涯活動關鍵字 — 即使含上面關鍵字,只要標題含這些也排除
+const NON_CAREER_REJECT = [
+  "學位論文", "口試", "選課", "註冊", "請領", "緩徵", "就學貸款",
+  "個資蒐集", "宿舍", "校友會年會", "退休", "導師會",
 ];
 
 interface ListItem {
@@ -96,6 +103,7 @@ function parseList(html: string): ListItem[] {
 }
 
 function isCareerRelated(title: string): boolean {
+  if (NON_CAREER_REJECT.some((kw) => title.includes(kw))) return false;
   return CAREER_KEYWORDS.some((kw) => title.includes(kw));
 }
 

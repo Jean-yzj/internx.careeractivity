@@ -23,7 +23,7 @@ export const ACTIVITY_TYPES: ActivityType[] = [
   "其他",
 ];
 
-export type SchoolKey = "nccu" | "ntu" | "ncku" | "nthu" | "nycu" | "ntnu" | "ncu" | "nsysu" | "tku";
+export type SchoolKey = "nccu" | "ntu" | "ncku" | "nthu" | "nycu" | "ntnu" | "ncu" | "nsysu" | "tku" | "nchu" | "ccu";
 
 export interface SchoolMeta {
   key: SchoolKey;
@@ -96,6 +96,20 @@ export const SCHOOLS: Record<SchoolKey, SchoolMeta> = {
     shortName: "淡江",
     region: "北部",
     homepageUrl: "https://enroll.tku.edu.tw/",
+  },
+  nchu: {
+    key: "nchu",
+    name: "國立中興大學",
+    shortName: "中興",
+    region: "中部",
+    homepageUrl: "https://www.osa.nchu.edu.tw/osa/cdc/",
+  },
+  ccu: {
+    key: "ccu",
+    name: "國立中正大學",
+    shortName: "中正",
+    region: "南部",
+    homepageUrl: "https://gc.ccu.edu.tw/",
   },
 };
 
