@@ -104,6 +104,48 @@ export function parseDateLoose(s: string): Date | null {
   return null;
 }
 
+/**
+ * 從活動標題萃取月/日(假設今年或明年的最近一次)。
+ * 例如:
+ *   "【職涯講座】03/19(四) 12:10..."  → 2026-03-19
+ *   "4/18(四) 12:10..."              → 2026-04-18
+ *   "5/13(三) 工作坊"                  → 2026-05-13
+ *   "2026/05/03 ..."                   → 2026-05-03
+ */
+export function extractDateFromTitle(title: string, referenceDate?: Date): Date | null {
+  if (!title) return null;
+  const ref = referenceDate || new Date();
+
+  // 優先嘗試完整 YYYY/MM/DD 格式
+  const fullMatch = title.match(/(20\d{2})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (fullMatch) {
+    const y = parseInt(fullMatch[1], 10);
+    const mo = parseInt(fullMatch[2], 10);
+    const d = parseInt(fullMatch[3], 10);
+    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
+      return new Date(y, mo - 1, d, 0, 0, 0);
+    }
+  }
+
+  // 短格式 M/D 或 MM/DD,通常後接「(週X)」或時間「12:10」
+  // 抓「3/19(四)」「03/19(四)」「3/19 」「3/19,」 等樣式
+  const shortMatch = title.match(/(?:^|[^\d\/])(\d{1,2})\/(\d{1,2})(?:[(\s（]|$)/);
+  if (shortMatch) {
+    const mo = parseInt(shortMatch[1], 10);
+    const d = parseInt(shortMatch[2], 10);
+    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) {
+      // 預設今年;若該日期已過 6 個月以上,視為明年同月日
+      let y = ref.getFullYear();
+      const candidate = new Date(y, mo - 1, d, 0, 0, 0);
+      const diffDays = (ref.getTime() - candidate.getTime()) / (1000 * 60 * 60 * 24);
+      if (diffDays > 180) y += 1; // 顯示明年同月日(避免猜成過去太久)
+      return new Date(y, mo - 1, d, 0, 0, 0);
+    }
+  }
+
+  return null;
+}
+
 export function applyTimeRange(timeText: string, baseDate: Date): { start: Date; end: Date } {
   const t = (timeText || "").trim();
   const m = t.match(/(\d{1,2}):(\d{2})\s*[-~至]\s*(\d{1,2}):(\d{2})/);

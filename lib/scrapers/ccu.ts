@@ -9,7 +9,7 @@
  * 詳情頁: /p/406-1040-{ID},r{block}.php
  */
 import * as cheerio from "cheerio";
-import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled, extractMainContent, isLikelyNavText } from "./common";
+import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled, extractMainContent, isLikelyNavText, extractDateFromTitle } from "./common";
 import type { Activity, ActivityType } from "../types";
 
 const BASE = "https://gc.ccu.edu.tw";
@@ -37,10 +37,17 @@ interface ListItem {
 // 中正徵才月網的標題很多是行政公告(停車、棚架、預約狀況、報名公告等)而非活動本身。
 // 這些一律過濾掉。
 const NON_EVENT_REJECT = [
-  "停車", "車輛", "棚架", "施工", "規定", "配置圖", "場地",
+  // 工程/場地佈置
+  "停車", "車輛", "棚架", "施工", "規定", "配置圖", "場地", "工程", "走廊",
+  "場勘", "佈置", "搭設",
+  // 行政流程
   "預約狀況", "報名公告", "招商", "招募廠商", "廠商招募",
-  "宣傳片", "形象片", "影片", "回顧", "懶人包", "成果報告",
-  "重要事項", "注意事項", "須知", "辦法", "流程", "簡介",
+  "重要通知", "重要事項", "注意事項", "須知", "辦法", "流程", "簡介",
+  "退費", "繳費", "繳款", "票券",
+  // 資料/影片
+  "宣傳片", "形象片", "影片", "回顧", "懶人包", "成果報告", "簡報",
+  // 給雇主的訊息
+  "致企業", "敬告", "感謝廠商", "成果分享",
 ];
 
 function isRealEvent(title: string): boolean {
@@ -119,7 +126,9 @@ function parseDetail(html: string, fallbackDate: string): DetailFields {
 }
 
 function buildActivity(item: ListItem, detail: DetailFields | null): Activity {
-  const start = detail?.startDateTime || parseDateLoose(item.date) || new Date();
+  // CCU 列表日期是「發布日」,不是活動日。改以 標題日期 > 詳情頁 > 發布日 為序
+  const titleDate = extractDateFromTitle(item.title);
+  const start = titleDate || detail?.startDateTime || parseDateLoose(item.date) || new Date();
   const end = detail?.endDateTime || (() => { const d = new Date(start); d.setHours(23, 59, 59, 999); return d; })();
 
   const activityType: ActivityType = inferActivityType(item.title) || item.defaultType;

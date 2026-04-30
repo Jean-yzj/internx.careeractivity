@@ -4,7 +4,7 @@
  * - 詳情: /osa/ch/app/data/view?module=nycu0106&id=3601&serno={id}
  */
 import * as cheerio from "cheerio";
-import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled, extractMainContent, isLikelyNavText } from "./common";
+import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled, extractMainContent, isLikelyNavText, extractDateFromTitle } from "./common";
 import type { Activity, ActivityType } from "../types";
 
 const BASE = "https://osa.nycu.edu.tw";
@@ -116,7 +116,10 @@ function parseDetail(html: string, fallbackDate: string): DetailFields {
 }
 
 function buildActivity(item: ListItem, detail: DetailFields | null): Activity {
-  const start = detail?.startDateTime || parseDateLoose(item.date) || new Date();
+  // 優先順序:標題裡的日期 > 詳情頁解析 > 列表頁日期 > 當下
+  // NYCU 列表頁日期是「更新日期」(民國),不是活動日,所以放最末
+  const titleDate = extractDateFromTitle(item.title);
+  const start = titleDate || detail?.startDateTime || parseDateLoose(item.date) || new Date();
   const end = detail?.endDateTime || (() => { const d = new Date(start); d.setHours(23, 59, 59, 999); return d; })();
 
   let activityType: ActivityType = inferActivityType(item.title) || "講座";

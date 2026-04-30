@@ -7,7 +7,7 @@
  * 排除:徵才/實習/甄試/考試(那些是工作機會而非活動)
  */
 import * as cheerio from "cheerio";
-import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled, extractMainContent, isLikelyNavText } from "./common";
+import { fetchHtml, inferActivityType, normalizeText, applyTimeRange, parseDateLoose, settled, extractMainContent, isLikelyNavText, extractDateFromTitle } from "./common";
 import type { Activity, ActivityType } from "../types";
 
 const BASE = "https://careercenter.ncu.edu.tw";
@@ -123,7 +123,9 @@ function parseDetail(html: string, fallbackDate: string): DetailFields {
 }
 
 function buildActivity(item: ListItem, detail: DetailFields | null): Activity {
-  const start = detail?.startDateTime || parseDateLoose(item.date) || new Date();
+  // 列表日期是發布日;標題若有 M/D 取為真正活動日
+  const titleDate = extractDateFromTitle(item.title);
+  const start = titleDate || detail?.startDateTime || parseDateLoose(item.date) || new Date();
   const end = detail?.endDateTime || (() => { const d = new Date(start); d.setHours(23, 59, 59, 999); return d; })();
 
   // 由列表分類 + 標題綜合判斷類型

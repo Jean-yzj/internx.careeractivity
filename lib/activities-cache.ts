@@ -41,21 +41,47 @@ async function scrapeAll(): Promise<Activity[]> {
   ];
 
   const results = await Promise.allSettled(sources.map((s) => s.run()));
-  const activities: Activity[] = [];
+  const rawActivities: Activity[] = [];
   results.forEach((r, idx) => {
     if (r.status === "fulfilled") {
-      activities.push(...r.value);
+      rawActivities.push(...r.value);
     } else {
       console.error(`[scraper:${sources[idx].name}] failed`, r.reason);
     }
   });
 
-  // 預設依活動開始時間遞增排序(最近的活動在前)
+  // 全域品質過濾 — 確保使用者看到的每一筆都符合最低品質
+  const NOW = Date.now();
+  const ONE_YEAR_FUTURE = NOW + 365 * 24 * 3600 * 1000;
+  const ONE_YEAR_PAST = NOW - 365 * 24 * 3600 * 1000;
+
+  const activities = rawActivities.filter((a) => {
+    // 1) 標題太短或空 → 丟棄
+    if (!a.title || a.title.trim().length < 4) return false;
+
+    // 2) 日期不合理(超過一年前 / 一年後) → 丟棄(通常是日期解析失敗導致 fallback 到怪值)
+    const start = new Date(a.startDateTime).getTime();
+    if (Number.isNaN(start)) return false;
+    if (start < ONE_YEAR_PAST || start > ONE_YEAR_FUTURE) return false;
+
+    // 3) end < start → 丟棄
+    const end = new Date(a.endDateTime).getTime();
+    if (Number.isNaN(end) || end < start) return false;
+
+    // 4) sourceUrl 必須存在
+    if (!a.sourceUrl || !/^https?:\/\//.test(a.sourceUrl)) return false;
+
+    return true;
+  });
+
+  // 依活動開始時間遞增排序(最近的活動在前)
   activities.sort((a, b) => {
     const ta = new Date(a.startDateTime).getTime();
     const tb = new Date(b.startDateTime).getTime();
     return ta - tb;
   });
+
+  console.log(`[cache] raw=${rawActivities.length} filtered=${activities.length}`);
   return activities;
 }
 
