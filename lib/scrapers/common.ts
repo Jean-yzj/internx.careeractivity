@@ -291,15 +291,26 @@ export function cleanDescription(desc: string, title: string): string {
   if (!desc) return desc;
   let cleaned = desc;
 
-  // \u79fb\u9664\u958b\u982d\u91cd\u8907\u7684\u6a19\u984c
-  if (title && cleaned.startsWith(title)) {
-    cleaned = cleaned.slice(title.length).trimStart();
-  }
+  // 1) \u79fb\u9664\u958b\u982d\u91cd\u8907\u7684\u6a19\u984c(NCHU/NCU \u7684 detail \u9801\u958b\u982d\u6703\u5370\u4e00\u6b21\u6a19\u984c)
+  //    \u8003\u616e title \u53ef\u80fd\u88ab\u525d\u6389\u3010XXX\u3011\u524d\u7db4,\u6240\u4ee5\u4e5f\u8a66 "\u3010XXX\u3011 + title" \u6a23\u5f0f
+  const stripDuplicateLeadingTitle = (s: string): string => {
+    // \u5b8c\u5168\u4e00\u81f4\u958b\u982d
+    if (title && s.startsWith(title)) return s.slice(title.length).trimStart();
+    // \u958b\u982d = \u300c\u3010\u985e\u5225\u3011 + \u6a19\u984c\u300d(\u6211\u5011\u7684 buildActivity \u628a\u3010\u3011\u524d\u7db4\u62ff\u6389,\u4f46 detail \u9801\u9084\u542b)
+    if (title) {
+      const m = s.match(/^\u3010[^\u3011]{1,15}\u3011\s*/);
+      if (m && s.slice(m[0].length).startsWith(title)) {
+        return s.slice(m[0].length + title.length).trimStart();
+      }
+    }
+    return s;
+  };
+  cleaned = stripDuplicateLeadingTitle(cleaned);
 
   // \u591a\u91cd\u63db\u884c \u2192 \u96d9\u63db\u884c
   cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
 
-  // \u540c\u4e00\u6bb5\u5167\u591a\u6b21\u51fa\u73fe\u7684\u6a19\u984c \u2192 \u53ea\u4fdd\u7559\u7b2c 1 \u6b21\u51fa\u73fe,\u5176\u9918\u522a\u9664
+  // 2) \u540c\u4e00\u6bb5\u5167\u591a\u6b21\u51fa\u73fe\u7684\u6a19\u984c \u2192 \u53ea\u4fdd\u7559\u7b2c 1 \u6b21,\u5176\u9918\u522a\u9664
   if (title && title.length >= 8) {
     const titleEsc = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const re = new RegExp(`(${titleEsc}\\s*\\n+)+`, "g");
@@ -311,7 +322,11 @@ export function cleanDescription(desc: string, title: string): string {
     });
   }
 
-  // \u79fb\u9664\u5e38\u898b\u7684\u5831\u540d\u7cfb\u7d71 metadata \u884c
+  // 3) \u5831\u540d\u7cfb\u7d71\u958b\u982d metadata \u884c(NCHU eguide \u98a8\u683c\u7684\u96dc\u8a0a)
+  //    \u4f8b:\u300c\u3010\u4f01\u696d\u53c3\u8a2a\u3011\u95dc\u9589\u4e2d\u300d\u300c\u3010\u8077\u6daf\u8b1b\u5ea7\u3011\u5831\u540d\u4e2d\u300d
+  cleaned = cleaned.replace(/^\u3010[^\u3011]{1,15}\u3011\s*(?:\u95dc\u9589\u4e2d|\u5831\u540d\u4e2d|\u5df2\u622a\u6b62|\u5df2\u984d\u6eff|\u6301\u7e8c\u5b78\u7fd2)\s*\n/gm, "");
+
+  // 4) \u7d14\u7cb9\u300c\u72c0\u614b\u884c\u300d (\u6c92\u6709\u3010\u3011\u524d\u7db4)
   cleaned = cleaned.replace(/^(\u6301\u7e8c\u5b78\u7fd2|\u95dc\u9589\u4e2d|\u5831\u540d\u4e2d|\u5df2\u622a\u6b62|\u5df2\u984d\u6eff)\s*\n/gm, "");
 
   return cleaned.trim();
