@@ -142,10 +142,12 @@ function buildActivity(item: ListItem, detail: DetailFields | null): Activity {
 }
 
 export async function scrapeNtnuActivities(): Promise<Activity[]> {
+  // 只抓 lecture.php = 「企業到師大舉辦的徵才說明會」 — 是師大本身的活動
+  // zone1.php = 「校外徵才活動」(他校博覽會轉發)
+  // list.php?type=info-recruit = 「校外職涯活動」(政府/企業第三方,非師大主辦)
+  // 兩者皆非師大本身舉辦,使用者要求只留師大自己的活動,故不抓
   const sources: { kind: SourceKind; url: string }[] = [
     { kind: "lecture", url: `${BASE}/lecture.php` },
-    { kind: "seminar", url: `${BASE}/zone1.php` },
-    { kind: "info-recruit", url: `${BASE}/list.php?lang=zh-tw&type=info-recruit` },
   ];
 
   // 平行抓三個列表

@@ -329,7 +329,9 @@ function buildActivity(listItem: ListItem, detail: DetailFields | null): Activit
   const start = startDt || baseDate;
   const end = endDt || start;
 
-  const registration_link = `${BASE_URL}registration.do?action=register&conferenceID=${conferenceId}`;
+  // 用 action=conferenceInfo (活動詳情頁) 而非 action=register (報名表單)
+  // register 對未登入訪客直接 HTTP 500,conferenceInfo 任何人都能看
+  const source_url = `${BASE_URL}registration.do?action=conferenceInfo&conferenceID=${conferenceId}`;
   const activity_type = inferActivityType(title);
 
   const venueType: Activity["venueType"] = venue_address ? "physical" : "unknown";
@@ -343,7 +345,7 @@ function buildActivity(listItem: ListItem, detail: DetailFields | null): Activit
     id: `nccu_${conferenceId}`,
     school: "nccu",
     sourceExternalId: conferenceId,
-    sourceUrl: registration_link,
+    sourceUrl: source_url,
     title,
     description,
     activityType: activity_type,
