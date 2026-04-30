@@ -92,6 +92,10 @@ function httpsPost(url: string, formBody: string): Promise<string> {
   });
 }
 
+// NCCU 改用 common.ts 的 inferActivityType (規則更完整),
+// 若 common 判斷不出再 fallback 到本檔案的補充規則
+import { inferActivityType as commonInferType } from "./common";
+
 const ACTIVITY_TYPE_KEYWORDS: Array<[string, ActivityType]> = [
   ["企業參訪", "企業參訪"],
   ["說明會", "說明會"],
@@ -104,9 +108,21 @@ const ACTIVITY_TYPE_KEYWORDS: Array<[string, ActivityType]> = [
   ["創業", "創業活動"],
   ["履歷", "工作坊"],
   ["模擬面試", "工作坊"],
+  // 額外:面試/求職/職涯類關鍵字 → 講座
+  ["面試", "講座"],
+  ["求職", "講座"],
+  ["職涯", "講座"],
+  ["公職", "講座"],
+  ["AI 新手", "工作坊"],
+  ["培訓", "工作坊"],
+  ["新手村", "工作坊"],
 ];
 
 function inferActivityType(title: string): ActivityType {
+  // 先用 common 規則(更完整),命中就回傳
+  const common = commonInferType(title);
+  if (common && common !== "其他") return common;
+  // 再用本檔案規則
   for (const [keyword, atype] of ACTIVITY_TYPE_KEYWORDS) {
     if (title && title.includes(keyword)) return atype;
   }

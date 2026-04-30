@@ -1,4 +1,5 @@
 import type { Activity } from "./types";
+import { cleanDescription } from "./scrapers/common";
 import { scrapeNccuActivities } from "./scrapers/nccu";
 import { scrapeNtuActivities } from "./scrapers/ntu";
 import { scrapeNthuActivities } from "./scrapers/nthu";
@@ -80,6 +81,25 @@ async function scrapeAll(): Promise<Activity[]> {
     .map((a) => {
       let out = a;
 
+      // 標題雜訊清理:NBSP、首尾空白、首尾標點
+      const cleanedTitle = (out.title || "")
+        .replace(/\xa0/g, " ")
+        .replace(/\s{2,}/g, " ")
+        .replace(/^[\s\.\-_,，。:：;；]+/, "")
+        .trim();
+      if (cleanedTitle !== out.title) {
+        out = { ...out, title: cleanedTitle };
+      }
+
+      // 描述清理:開頭重複標題、多餘換行、報名系統 metadata
+      if (out.description && !out.description.startsWith("📌")) {
+        // 不動 NYCU 的結構化 fallback (📌 開頭)
+        const cleaned = cleanDescription(out.description, out.title);
+        if (cleaned !== out.description) {
+          out = { ...out, description: cleaned };
+        }
+      }
+
       // 修正:報名截止日不該晚於活動開始日,若有矛盾就清掉 deadline
       if (out.registrationDeadline) {
         const rd = new Date(out.registrationDeadline).getTime();
@@ -122,8 +142,31 @@ async function scrapeAll(): Promise<Activity[]> {
     return ta - tb;
   });
 
-  console.log(`[cache] raw=${rawActivities.length} filtered=${activities.length}`);
-  return activities;
+  // 同校 + 同(去除前綴後的)標題 → 只保留 sourceExternalId 較大者(較新公告)
+  const dedupKey = (a: Activity) => {
+    const t = a.title.replace(/^【[^】]+】\s*/, "").slice(0, 40);
+    return `${a.school}::${t}`;
+  };
+  const seenKeys = new Map<string, Activity>();
+  for (const a of activities) {
+    const k = dedupKey(a);
+    const existing = seenKeys.get(k);
+    if (!existing) {
+      seenKeys.set(k, a);
+    } else {
+      // 比較 sourceExternalId(數字較大通常較新)
+      const newer = (a.sourceExternalId || "") > (existing.sourceExternalId || "");
+      if (newer) seenKeys.set(k, a);
+    }
+  }
+  const deduped = Array.from(seenKeys.values()).sort((a, b) => {
+    return new Date(a.startDateTime).getTime() - new Date(b.startDateTime).getTime();
+  });
+
+  console.log(
+    `[cache] raw=${rawActivities.length} filtered=${activities.length} deduped=${deduped.length}`
+  );
+  return deduped;
 }
 
 export async function getActivities(options?: { force?: boolean }): Promise<{

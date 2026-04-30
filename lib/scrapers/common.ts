@@ -65,12 +65,12 @@ export function inferActivityType(title: string): ActivityType | null {
     [/企業參訪|產業參訪|公司參訪|參訪|走訪|tour/i, "企業參訪"],
     [/博覽會|徵才博覽|校園徵才|盛典|expo/i, "博覽會"],
     [/說明會|info\s*session/i, "說明會"],
-    [/工作坊|workshop|履歷健檢|履歷健診|模擬面試|實作課|實作營/i, "工作坊"],
+    [/工作坊|workshop|履歷健檢|履歷健診|模擬面試|實作課|實作營|培訓班|培訓課|認證班|認證課|新手村/i, "工作坊"],
     [/競賽|大賽|錦標賽|競試|hackathon|hack|挑戰賽/i, "競賽"],
     [/校園大使|大使招募|Passion\s*Worker|學生團隊招募|學生大使|實習生招募|工讀生|志工招募/i, "校園大使"],
     [/創業|新創|startup|incubat/i, "創業活動"],
     [/交流會|交流活動|分享會|沙龍|座談|gathering|networking|mixer|mentor.*tea|交流晚會/i, "交流活動"],
-    [/講座|演講|論壇|forum|大師|名人|分享|talk|對談|心法|引領|啟動|計畫.*發展|職涯探索|職涯發展|職涯規劃|海外/i, "講座"],
+    [/講座|演講|論壇|forum|大師|名人|分享|talk|對談|心法|引領|啟動|計畫.*發展|職涯探索|職涯發展|職涯規劃|海外|未來職涯|面試必勝|面試攻略|面試技巧|求職技巧|公職|公務|招募咖啡車/i, "講座"],
     [/徵才|招募|求才|誠徵|聘|hiring/i, "其他"],
   ];
   for (const [re, type] of rules) {
@@ -279,6 +279,42 @@ export function extractDescription($: any, customSelectors: string[] = []): stri
   if (isLikelyNavText(raw)) return null;
   // \u622a 2500 \u5b57\u4ee5\u514d payload \u904e\u5927
   return raw.slice(0, 2500);
+}
+
+/**
+ * \u6e05\u7406\u6d3b\u52d5\u63cf\u8ff0\u4e2d\u5e38\u898b\u7684\u96dc\u8a0a:
+ *  - \u958b\u982d\u91cd\u8907\u7684\u6a19\u984c\u884c(\u5e38\u898b\u65bc list page \u8207 detail page \u90fd\u628a\u6a19\u984c\u5370\u4e00\u6b21)
+ *  - \u591a\u9918\u7a7a\u884c(\u9023\u7e8c \n \u8b8a\u6210\u6700\u591a 2 \u500b)
+ *  - \u958b\u982d/\u7d50\u5c3e\u7684 \u300c\u6301\u7e8c\u5b78\u7fd2\u300d\u300c\u5df2\u622a\u6b62\u300d\u9019\u985e\u5831\u540d\u7cfb\u7d71 metadata
+ */
+export function cleanDescription(desc: string, title: string): string {
+  if (!desc) return desc;
+  let cleaned = desc;
+
+  // \u79fb\u9664\u958b\u982d\u91cd\u8907\u7684\u6a19\u984c
+  if (title && cleaned.startsWith(title)) {
+    cleaned = cleaned.slice(title.length).trimStart();
+  }
+
+  // \u591a\u91cd\u63db\u884c \u2192 \u96d9\u63db\u884c
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+
+  // \u540c\u4e00\u6bb5\u5167\u591a\u6b21\u51fa\u73fe\u7684\u6a19\u984c \u2192 \u53ea\u4fdd\u7559\u7b2c 1 \u6b21\u51fa\u73fe,\u5176\u9918\u522a\u9664
+  if (title && title.length >= 8) {
+    const titleEsc = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`(${titleEsc}\\s*\\n+)+`, "g");
+    let firstReplaced = false;
+    cleaned = cleaned.replace(re, (m) => {
+      if (firstReplaced) return "";
+      firstReplaced = true;
+      return m.split("\n")[0] + "\n";
+    });
+  }
+
+  // \u79fb\u9664\u5e38\u898b\u7684\u5831\u540d\u7cfb\u7d71 metadata \u884c
+  cleaned = cleaned.replace(/^(\u6301\u7e8c\u5b78\u7fd2|\u95dc\u9589\u4e2d|\u5831\u540d\u4e2d|\u5df2\u622a\u6b62|\u5df2\u984d\u6eff)\s*\n/gm, "");
+
+  return cleaned.trim();
 }
 
 export function settled<T>(promises: Array<Promise<T>>, label: string): Promise<T[]> {
